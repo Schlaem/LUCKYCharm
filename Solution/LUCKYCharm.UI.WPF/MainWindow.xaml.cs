@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -12,6 +11,8 @@ namespace LUCKYCharm.UI.WPF
     {
         private int _numbersFrom = 1;
         private int _numbersTo = 1000;
+
+        private StreamWriter? _numbersWriter;
 
         public Random Random { get; } = new Random();
 
@@ -38,11 +39,20 @@ namespace LUCKYCharm.UI.WPF
 
             ConfigurationPanel.Visibility = Visibility.Collapsed;
             CounterViewBox.Visibility = Visibility.Visible;
+
+            Directory.CreateDirectory("logs");
+            _numbersWriter = new(new FileStream($"logs/{DateTime.Now:yyyy}{DateTime.Now:MM}{DateTime.Now:dd}-{DateTime.Now:HH}{DateTime.Now:mm}{DateTime.Now:ss} Zahlenprotokoll.log", FileMode.CreateNew));
+            _numbersWriter.WriteLine($"Zahlenbereich: {_numbersFrom} bis {_numbersTo}");
+            _numbersWriter.WriteLine($"Index:Nummer");
+            _numbersWriter.WriteLine($"------------");
+            _numbersWriter.Flush();
         }
 
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
             NextButton.IsEnabled = false;
+            CloseButton.IsEnabled = false;
+            CloseButton.Visibility = Visibility.Hidden;
 
             Task.Run(StartZiehungAsync);
         }
@@ -62,26 +72,21 @@ namespace LUCKYCharm.UI.WPF
 
             NumberHistory.Add(nextNumber);
 
+            _numbersWriter!.WriteLine($"{NumberHistory.Count}:{nextNumber}");
+            _numbersWriter.Flush();
+
             Dispatcher.Invoke(() => {
                 NumberTextBlock.Text = nextNumber.ToString();
                 NextButton.IsEnabled = NumberHistory.Count < (_numbersTo - _numbersFrom);
+                CloseButton.IsEnabled = true;
+                CloseButton.Visibility = Visibility.Visible;
             });
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            Directory.CreateDirectory("logs");
-            using (StreamWriter writer = new(new FileStream($"logs/{DateTime.Now:yyyy}{DateTime.Now:MM}{DateTime.Now:dd}-{DateTime.Now:HH}{DateTime.Now:mm}{DateTime.Now:ss} Zahlenprotokoll.log", FileMode.CreateNew))) {
-                writer.WriteLine("Index:Number");
-                writer.WriteLine("------------");
-
-                for (int n = 0; n < NumberHistory.Count; n++) {
-                    writer.WriteLine($"{n + 1}:{NumberHistory.ElementAt(n)}");
-                }
-
-                writer.Flush();
-            }
-
+            _numbersWriter!.Flush();
+            _numbersWriter.Close();
             Application.Current.Shutdown();
         }
 
